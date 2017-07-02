@@ -108,7 +108,7 @@ readLoop()
 
 # SCRIPT BODY - EXECUTION STARTS HERE
 
-while getops ivr opt
+while getopts ivr opt
 do
 	case $opt in
 		i) shift $(($OPTIND - 1))
