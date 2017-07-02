@@ -1,0 +1,138 @@
+#!/bin/bash
+
+#_____SAFE_REMOVE_____
+
+# VARIABLE DECLARATIONS
+
+recycleBin=$HOME/deleted
+restoreLog=$HOME/.restore.info
+
+iFlag=false
+vFlag=false
+rFlag=false
+
+fileList=''
+directoryList=''
+
+#	Function createDeleteDirectory
+#	Checks if deleted directory exits
+#	if false, creates deleted directory
+#	and .restore.info - recycle bin log
+
+# FUNCTION DEFINITIONS
+
+createDeleteDirectory()
+{
+	if [ ! -d $recycleBin ]
+	then
+		mkdir $recycleBin
+		touch $restoreLog
+	fi
+}
+
+errorCheck()
+{
+	if [ ! -e $1 ]
+	then
+		echo "ERROR - cannot remove \`$1' - Cannot find location - ABORT"
+		exit 1
+	elif [[ $rFlag = 'false' && -d $1 ]]
+	then
+		echo "ERROR - cannot remove \`$1' - Cannot delete directory - ABORT"
+		exit 1
+	elif [ $(basename $1) = 'remove' ]
+	then
+		echo "ERROR - caanot delete remove script using itself - ABORT"
+		exit 1
+	else
+		deleteFile $1
+	fi
+}
+
+deleteFile()
+{
+	inode=$(stat -c%i $1)
+	filePath=$(readlink -m $1)
+	filePID=$(echo "$(basename $1)_$inode")
+	
+	if [[ $iFlag = 'true' && $vFlag = 'false' ]]  #INTERACTIVE BUT NOT VERBOSE
+	then
+		read -p "Are you sure you want to delete file '$1'? " response
+		if [[ $response = [yY]* ]]
+		then
+			mv $1 $recycleBin/$filePID
+		fi
+	elif [[ $iFlag = 'false' && $vFlag = 'true' ]]
+	then
+		mv $1 $recycleBin/$filePID
+		echo "Successfully deleted $1"
+	elif [[ $iFlag = 'true' && $vFlag = 'true' ]]
+	then
+		read -p "Are you sure you want to delete file '$1'? " response
+		if [[ $response = [yY]* ]]
+		then
+			mv $1 $recycleBin/$filePID
+			echo "Successfully deleted $1"
+		fi
+	else
+		mv $1 $recycleBin/$filePID
+	fi
+	
+	echo "$filePID:$filePath" >> $restoreLog
+}
+
+deleteLoop()
+{
+	for i in $files
+	do
+		delete $i
+	done
+	rm -r $1
+}
+
+readLoop()
+{
+	createDeleteDirectory
+	
+	if [ $# -eq 0 ]
+	then
+		echo "ERROR - Must enter name of a file - ABORT"
+		exit 1
+	fi
+	
+	for filename in "$@"
+	do
+		errorCheck $filename
+	done
+}
+
+# SCRIPT BODY - EXECUTION STARTS HERE
+
+while getops ivr opt
+do
+	case $opt in
+		i) shift $(($OPTIND - 1))
+			iFlag=true;;
+		v) shift $(($OPTIND - 1))
+			vFlag=true;;
+		r) shift &(($OPTIND - 1))
+			if [ ! -d $1 ]
+			then
+				echo "ERROR - Cannot remove \`$1' - Directory not found - ABORT"
+				exit 1
+			fi
+			fileList=$(find $1 -type f)
+			directoryList=$(find $1 -type d)
+			rFlag=true;;
+		\?) echo "OPTIONS - sh $0 -i|-v|-iv| int*"
+			exit 1;;
+	esac
+done
+
+if [ $rFlag = 'false' ]
+then
+	readLoop $*
+else
+	createDeleteDirectory
+	deleteLoop $1
+fi

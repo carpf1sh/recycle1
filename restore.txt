@@ -1,0 +1,62 @@
+#!/bin/bash
+
+#_____SAFE_REMOVE_____
+
+# VARIABLE DECLARATIONS
+
+recycleBin=$HOME/deleted
+restoreLog=$HOME/.restore.info
+
+iFlag=false
+vFlag=false
+rFlag=false
+
+# FUNCTION DEFINITIONS
+
+errorCheck()
+{
+	if [ $# -eq 0 ]
+	then
+		echo "ERROR - Active file name required - ex - sh restore filename_inode - ABORT"
+		exit 1
+	elif [ ! -e $recycleBin/$1 ]
+	then
+		echo "ERROR - File \`$1' does not exist - ABORT "
+	fi
+}
+
+restore()
+{
+	filePath=$(grep $1 $restoreLog | cut d":" -f2)
+	directoryPath=$(dirname $filePath)
+	
+	if [[ -d $directoryPath ]]
+	then
+		mv $recycleBin/$1 $filePath
+		grep -v $1 $restoreLog > temp && mv temp $restoreLog
+	else
+		mkdir -p $directoryPath
+		mv $recycleBin/$1 $filePath
+		grep -v $1 $restoreLog > temp && mv temp $restoreLog
+	fi
+}
+
+checkForExistingFile()
+{
+	filePath=$(grep $1 $restoreLog | cut -d":" -f2)
+	if [ ! -e $filePath ]
+	then
+		restore $1
+	else
+		read -p "Would you like to overwrite the existing file? y/n? " choice
+		case $choice in
+			[Yy]*) restore $1 ;;
+			*) exit 0 ;;
+		esac
+	fi
+}
+
+# SCRIPT BODY - EXECUTION STARTS HERE
+
+errorCheck $1
+checkForExistingFile $1
